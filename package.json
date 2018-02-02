@@ -1,0 +1,17 @@
+{
+  "name": "multisig-wallet",
+  "description": "",
+  "version": "0.1.0",
+  "author": {
+    "name": "Raine Revere",
+    "email": "raine@clarityofheart.com",
+    "url": "https://github.com/raineorshine"
+  },
+  "scripts": {
+    "test": "truffle test",
+    "migrate": "truffle compile && truffle migrate --reset"
+  },
+  "dependencies": {
+    "truffle": "^3.4.11"
+  }
+}
