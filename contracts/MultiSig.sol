@@ -54,7 +54,7 @@ contract MultiSig {
    * INTERNAL
    ***********************************************************/
 
-  function addMultiSig(uint _quarum, address[] _signers) internal {
+  function addMultiSig(uint _quarum, address[] _signers) internal returns(uint) {
 
     // quarum must be at least 1 (used to determine existence)
     require(_quarum > 0);
@@ -67,6 +67,8 @@ contract MultiSig {
 
     // log
     MultiSigAdded(index, _quarum, _signers);
+
+    return index;
   }
 
   // sign as any address
