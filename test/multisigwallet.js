@@ -123,7 +123,36 @@ contract('MultiSigWallet', accounts => {
   })
 
   describe('executeWithdrawal', () => {
-    it('should allow a withdrawal with a quarum of signatures to be executed by anyone', async function() {
+    it('should allow a withdrawal with a quarum of signatures to be executed by any signer', async function() {
+      const multisig = await MultiSigWallet.new()
+      await multisig.createWallet(2, signers, { from: salt })
+      await multisig.deposit(0, { from: other, value: web3.toWei(0.1) })
+      const proposalResult = await multisig.proposeWithdrawal(0, other, web3.toWei(0.01), { from: salt })
+
+      // get multisigId for signing
+      const proposalLogs = findEventLogs(proposalResult, 'WithdrawalProposed')
+      const multisigId = proposalLogs.args.multisigId.toNumber()
+      const initialBalance = web3.eth.getBalance(other)
+
+      // sign
+      multisig.sign(multisigId, { from: borrower })
+
+      // execute withdrawal
+      const result = await multisig.executeWithdrawal(0, { from: agent })
+
+      // assert event
+      const logs = findEventLogs(result, 'WithdrawalExecuted')
+      assert(logs)
+      assert.equal(logs.args.withdrawalId.toNumber(), 0)
+      assert.equal(logs.args.sender, agent)
+      assert.equal(logs.args.to, other)
+      assert.equal(web3.fromWei(logs.args.amount).toNumber(), 0.01)
+
+      // assert balance
+      assertBalanceApprox(other, initialBalance.plus(web3.toWei(0.01)))
+    })
+
+    it('should not allow a withdrawal with a quarum of signatures to be executed by a non-signer', async function() {
       const multisig = await MultiSigWallet.new()
       await multisig.createWallet(2, signers, { from: salt })
       await multisig.deposit(0, { from: other, value: web3.toWei(0.1) })
@@ -139,17 +168,6 @@ contract('MultiSigWallet', accounts => {
 
       // execute withdrawal
       const result = await multisig.executeWithdrawal(0, { from: other })
-
-      // assert event
-      const logs = findEventLogs(result, 'WithdrawalExecuted')
-      assert(logs)
-      assert.equal(logs.args.withdrawalId.toNumber(), 0)
-      assert.equal(logs.args.sender, other)
-      assert.equal(logs.args.to, other)
-      assert.equal(web3.fromWei(logs.args.amount).toNumber(), 0.01)
-
-      // assert balance
-      assertBalanceApprox(other, initialBalance.plus(web3.toWei(0.01)))
     })
 
     it('should allow a withdrawal with a different quarum of signatures to be executed', async function() {
