@@ -23,8 +23,8 @@ contract MultiSigWallet is MultiSig {
 
   struct Wallet {
     uint quarum;
-    address[] signers;
     uint balance;
+    address[] signers;
   }
 
   struct Withdrawal {
