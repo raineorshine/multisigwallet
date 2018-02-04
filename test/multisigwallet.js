@@ -108,8 +108,8 @@ contract('MultiSigWallet', accounts => {
     it('should allow a withdrawal with a quarum of signatures to be executed by anyone', async function() {
       const multisig = await MultiSigWallet.new()
       await multisig.createWallet(2, signers, { from: salt })
-      await multisig.deposit(0, { from: other, value: 123 })
-      const proposalResult = await multisig.proposeWithdrawal(0, other, 100, { from: salt })
+      await multisig.deposit(0, { from: other, value: web3.toWei(0.1) })
+      const proposalResult = await multisig.proposeWithdrawal(0, other, web3.toWei(0.01), { from: salt })
 
       // get multisigId for signing
       const proposalLogs = findEventLogs(proposalResult, 'WithdrawalProposed')
@@ -128,19 +128,18 @@ contract('MultiSigWallet', accounts => {
       assert.equal(logs.args.withdrawalId.toNumber(), 0)
       assert.equal(logs.args.sender, other)
       assert.equal(logs.args.to, other)
-      assert.equal(logs.args.amount.toNumber(), 100)
+      assert.equal(web3.fromWei(logs.args.amount).toNumber(), 0.01)
 
       // assert balance
-      assertBalanceApprox(other, initialBalance.plus(100))
+      assertBalanceApprox(other, initialBalance.plus(web3.toWei(0.01)))
     })
 
-    // TODO: Why failing now?
-    it.skip('should allow a withdrawal with a different quarum of signatures to be executed', async function() {
+    it('should allow a withdrawal with a different quarum of signatures to be executed', async function() {
       const multisig = await MultiSigWallet.new()
       await multisig.createWallet(2, signers, { from: salt })
-      await multisig.deposit(0, { from: other, value: 123 })
+      await multisig.deposit(0, { from: other, value: web3.toWei(0.1) })
       const initialBalance = web3.eth.getBalance(other)
-      const proposalResult = await multisig.proposeWithdrawal(0, other, 100, { from: salt })
+      const proposalResult = await multisig.proposeWithdrawal(0, other, web3.toWei(0.01), { from: salt })
 
       // get multisigId for signing
       const proposalLogs = findEventLogs(proposalResult, 'WithdrawalProposed')
@@ -158,10 +157,10 @@ contract('MultiSigWallet', accounts => {
       assert.equal(logs.args.withdrawalId.toNumber(), 0)
       assert.equal(logs.args.sender, other)
       assert.equal(logs.args.to, other)
-      assert.equal(logs.args.amount.toNumber(), 100)
+      assert.equal(web3.fromWei(logs.args.amount).toNumber(), 0.01)
 
       // assert balance
-      assertBalanceApprox(other, initialBalance.plus(100))
+      assertBalanceApprox(other, initialBalance.plus(web3.toWei(0.01)))
     })
 
     it('should not allow a withdrawal without a quarum of signatures to be executed', async function() {
@@ -178,16 +177,15 @@ contract('MultiSigWallet', accounts => {
       await assertThrow(multisig.executeWithdrawal(0, { from: other }))
     })
 
-    it.skip('should allow multiple independent withdrawals', async function() {
+    it('should allow multiple independent withdrawals', async function() {
       const multisig = await MultiSigWallet.new()
       await multisig.createWallet(2, signers, { from: salt })
-      await multisig.deposit(0, { from: other, value: 145 })
-      // TODO: Use ETH to avoid proportionally large gas costs
+      await multisig.deposit(0, { from: other, value: web3.toWei(0.1) })
       const initialBalance = web3.eth.getBalance(other)
 
-      await multisig.proposeWithdrawal(0, other, 10, { from: salt })
-      await multisig.proposeWithdrawal(0, other, 15, { from: salt })
-      await multisig.proposeWithdrawal(0, other, 20, { from: salt })
+      await multisig.proposeWithdrawal(0, other, web3.toWei(0.010), { from: salt })
+      await multisig.proposeWithdrawal(0, other, web3.toWei(0.015), { from: salt })
+      await multisig.proposeWithdrawal(0, other, web3.toWei(0.020), { from: salt })
 
       // sign
       await multisig.sign(2, { from: borrower })
@@ -195,16 +193,16 @@ contract('MultiSigWallet', accounts => {
       await multisig.sign(0, { from: borrower })
 
       // execute withdrawal and assert balance
-      await multisig.executeWithdrawal(2, { from: other })
-      assertBalanceApprox(other, initialBalance.plus(20))
+      await multisig.executeWithdrawal(2, { from: salt })
+      assertBalanceApprox(other, initialBalance.plus(web3.toWei(0.020)))
 
       // execute withdrawal and assert balance
-      await multisig.executeWithdrawal(0, { from: other })
-      assertBalanceApprox(other, initialBalance.plus(20 + 10))
+      await multisig.executeWithdrawal(0, { from: salt })
+      assertBalanceApprox(other, initialBalance.plus(web3.toWei(0.020 + 0.010)))
 
       // execute withdrawal and assert balance
-      await multisig.executeWithdrawal(1, { from: other })
-      assertBalanceApprox(other, initialBalance.plus(20 + 10 + 15))
+      await multisig.executeWithdrawal(1, { from: salt })
+      assertBalanceApprox(other, initialBalance.plus(web3.toWei(0.020 + 0.010 + 0.015)))
     })
 
     it.skip('should allow total withdrawals to exceed balance, but disallow execution', async function() {
