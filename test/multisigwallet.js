@@ -29,6 +29,18 @@ contract('MultiSigWallet', accounts => {
       assert.equal(logs.args.quarum.toNumber(), 2)
       assert.deepEqual(logs.args.signers, signers)
     })
+
+    it('should get wallet info', async function() {
+      const multisig = await MultiSigWallet.new()
+      await multisig.createWallet(2, signers, { from: salt })
+
+      const wallet = await multisig.wallets(0)
+      assert.equal(wallet[WALLET_QUARUM].toNumber(), 2)
+      assert.equal(wallet[WALLET_BALANCE].toNumber(), 0)
+
+      const walletSigners = await multisig.getWalletSigners(0)
+      assert.deepEqual(walletSigners, signers)
+    })
   })
 
   describe('deposit', () => {

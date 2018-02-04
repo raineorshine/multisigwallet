@@ -162,4 +162,14 @@ contract MultiSigWallet is MultiSig {
 
     WithdrawalExecuted(withdrawalId, msg.sender, withdrawal.to, withdrawal.amount);
   }
+
+  /***********************************************************
+   * CONSTANT PUBLIC FUNCTIONS
+   ***********************************************************/
+
+  // separate function needed since signers will not be returned in default struct[] getter
+  function getWalletSigners(uint walletId) public constant returns(address[]) {
+    return wallets[walletId].signers;
+  }
+
 }
