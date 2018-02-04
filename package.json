@@ -1,6 +1,6 @@
 {
   "name": "multisigwallet",
-  "description": "",
+  "description": "A simple, Ethereum multisig wallet contract",
   "version": "0.1.0",
   "author": {
     "name": "Raine Revere",
