@@ -154,6 +154,7 @@ contract MultiSigWallet is MultiSig {
     Withdrawal storage withdrawal = withdrawals[withdrawalId];
 
     // withdraw ETH to destination address
+    wallets[withdrawal.walletId].balance -= withdrawal.amount; // safe via validWithdrawalBalance
     if (!withdrawal.to.call.value(withdrawal.amount)()) revert();
 
     // change status

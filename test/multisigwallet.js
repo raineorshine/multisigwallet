@@ -148,7 +148,11 @@ contract('MultiSigWallet', accounts => {
       assert.equal(logs.args.to, other)
       assert.equal(web3.fromWei(logs.args.amount).toNumber(), 0.01)
 
-      // assert balance
+      // assert wallet balance
+      const wallet = await multisig.wallets(0)
+      assert.equal(web3.fromWei(wallet[WALLET_BALANCE]).toNumber(), 0.09)
+
+      // assert ETH balance
       assertBalanceApprox(other, initialBalance.plus(web3.toWei(0.01)))
     })
 
