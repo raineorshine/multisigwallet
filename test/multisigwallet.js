@@ -1,6 +1,6 @@
 const MultiSigWallet = artifacts.require("./MultiSigWallet.sol")
 const assert = require('assert')
-const { assertThrow, assertBalanceApprox } = require('./test-util.js')
+const { assertThrow, assertBalanceApprox, findEventLogs } = require('./test-util.js')
 
 // struct indices
 const [WALLET_QUARUM, WALLET_BALANCE] = [0,1,2]
@@ -22,12 +22,12 @@ contract('MultiSigWallet', accounts => {
       const result = await multisig.createWallet(2, signers, { from: salt })
 
       // assert event
-      assert.equal(result.logs.length, 1)
-      assert.equal(result.logs[0].event, 'WalletCreated')
-      assert.equal(result.logs[0].args.id.toNumber(), 0)
-      assert.equal(result.logs[0].args.sender, salt)
-      assert.equal(result.logs[0].args.quarum.toNumber(), 2)
-      assert.deepEqual(result.logs[0].args.signers, signers)
+      const logs = findEventLogs(result, 'WalletCreated')
+      assert(logs)
+      assert.equal(logs.args.id.toNumber(), 0)
+      assert.equal(logs.args.sender, salt)
+      assert.equal(logs.args.quarum.toNumber(), 2)
+      assert.deepEqual(logs.args.signers, signers)
     })
   })
 
@@ -38,11 +38,11 @@ contract('MultiSigWallet', accounts => {
       const result = await multisig.deposit(0, { from: other, value: 123 })
 
       // assert event
-      assert.equal(result.logs.length, 1)
-      assert.equal(result.logs[0].event, 'WalletDeposited')
-      assert.equal(result.logs[0].args.id.toNumber(), 0)
-      assert.equal(result.logs[0].args.sender, other)
-      assert.equal(result.logs[0].args.amount.toNumber(), 123)
+      const logs = findEventLogs(result, 'WalletDeposited')
+      assert(logs)
+      assert.equal(logs.args.id.toNumber(), 0)
+      assert.equal(logs.args.sender, other)
+      assert.equal(logs.args.amount.toNumber(), 123)
 
       // assert event
       const wallet = await multisig.wallets(0)
@@ -51,20 +51,20 @@ contract('MultiSigWallet', accounts => {
   })
 
   describe('proposeWithdrawal', () => {
-    it.skip('should allow a signer to propose a withdrawal', async function() {
+    it('should allow a signer to propose a withdrawal', async function() {
       const multisig = await MultiSigWallet.new()
       await multisig.createWallet(2, signers, { from: salt })
       await multisig.deposit(0, { from: other, value: 123 })
       const result = await multisig.proposeWithdrawal(0, other, 100, { from: salt })
 
       // assert event
-      // TODO: Nondeterministic log order
-      assert.equal(result.logs[1].event, 'WithdrawalProposed')
-      assert.equal(result.logs[1].args.walletId.toNumber(), 0)
-      assert.equal(result.logs[1].args.sender, salt)
-      assert.equal(result.logs[1].args.to, other)
-      assert.equal(result.logs[1].args.multisigId, 0)
-      assert.equal(result.logs[1].args.amount.toNumber(), 100)
+      const logs = findEventLogs(result, 'WithdrawalProposed')
+      assert(logs)
+      assert.equal(logs.args.walletId.toNumber(), 0)
+      assert.equal(logs.args.sender, salt)
+      assert.equal(logs.args.to, other)
+      assert.equal(logs.args.multisigId, 0)
+      assert.equal(logs.args.amount.toNumber(), 100)
     })
 
     it('should not allow a non-signer to propose a withdrawal', async function() {
@@ -84,10 +84,11 @@ contract('MultiSigWallet', accounts => {
       const result = await multisig.cancelWithdrawal(0, { from: salt })
 
       // assert event
-      assert.equal(result.logs.length, 1)
-      assert.equal(result.logs[0].event, 'WithdrawalCanceled')
-      assert.equal(result.logs[0].args.withdrawalId.toNumber(), 0)
-      assert.equal(result.logs[0].args.sender, salt)
+      const logs = findEventLogs(result, 'WithdrawalCanceled')
+      assert(logs)
+      assert.equal(logs.event, 'WithdrawalCanceled')
+      assert.equal(logs.args.withdrawalId.toNumber(), 0)
+      assert.equal(logs.args.sender, salt)
     })
 
     it('should not allow a signer to cancel a withdrawal they did not propose', async function() {
@@ -108,10 +109,11 @@ contract('MultiSigWallet', accounts => {
       const multisig = await MultiSigWallet.new()
       await multisig.createWallet(2, signers, { from: salt })
       await multisig.deposit(0, { from: other, value: 123 })
-      const withdrawalResult = await multisig.proposeWithdrawal(0, other, 100, { from: salt })
+      const proposalResult = await multisig.proposeWithdrawal(0, other, 100, { from: salt })
 
       // get multisigId for signing
-      const multisigId = withdrawalResult.logs[2].args.multisigId.toNumber()
+      const proposalLogs = findEventLogs(proposalResult, 'WithdrawalProposed')
+      const multisigId = proposalLogs.args.multisigId.toNumber()
       const initialBalance = web3.eth.getBalance(other)
 
       // sign
@@ -121,12 +123,12 @@ contract('MultiSigWallet', accounts => {
       const result = await multisig.executeWithdrawal(0, { from: other })
 
       // assert event
-      assert.equal(result.logs.length, 1)
-      assert.equal(result.logs[0].event, 'WithdrawalExecuted')
-      assert.equal(result.logs[0].args.withdrawalId.toNumber(), 0)
-      assert.equal(result.logs[0].args.sender, other)
-      assert.equal(result.logs[0].args.to, other)
-      assert.equal(result.logs[0].args.amount.toNumber(), 100)
+      const logs = findEventLogs(result, 'WithdrawalExecuted')
+      assert(logs)
+      assert.equal(logs.args.withdrawalId.toNumber(), 0)
+      assert.equal(logs.args.sender, other)
+      assert.equal(logs.args.to, other)
+      assert.equal(logs.args.amount.toNumber(), 100)
 
       // assert balance
       assertBalanceApprox(other, initialBalance.plus(100))
@@ -138,10 +140,11 @@ contract('MultiSigWallet', accounts => {
       await multisig.createWallet(2, signers, { from: salt })
       await multisig.deposit(0, { from: other, value: 123 })
       const initialBalance = web3.eth.getBalance(other)
-      const withdrawalResult = await multisig.proposeWithdrawal(0, other, 100, { from: salt })
+      const proposalResult = await multisig.proposeWithdrawal(0, other, 100, { from: salt })
 
       // get multisigId for signing
-      const multisigId = withdrawalResult.logs[2].args.multisigId.toNumber()
+      const proposalLogs = findEventLogs(proposalResult, 'WithdrawalProposed')
+      const multisigId = proposalLogs.args.multisigId.toNumber()
 
       // sign
       await multisig.sign(multisigId, { from: agent }) // only difference from above test
@@ -150,12 +153,12 @@ contract('MultiSigWallet', accounts => {
       const result = await multisig.executeWithdrawal(0, { from: other })
 
       // assert event
-      assert.equal(result.logs.length, 1)
-      assert.equal(result.logs[0].event, 'WithdrawalExecuted')
-      assert.equal(result.logs[0].args.withdrawalId.toNumber(), 0)
-      assert.equal(result.logs[0].args.sender, other)
-      assert.equal(result.logs[0].args.to, other)
-      assert.equal(result.logs[0].args.amount.toNumber(), 100)
+      const logs = findEventLogs(result, 'WithdrawalExecuted')
+      assert.equal(logs.event, 'WithdrawalExecuted')
+      assert.equal(logs.args.withdrawalId.toNumber(), 0)
+      assert.equal(logs.args.sender, other)
+      assert.equal(logs.args.to, other)
+      assert.equal(logs.args.amount.toNumber(), 100)
 
       // assert balance
       assertBalanceApprox(other, initialBalance.plus(100))
@@ -165,10 +168,11 @@ contract('MultiSigWallet', accounts => {
       const multisig = await MultiSigWallet.new()
       await multisig.createWallet(2, signers, { from: salt })
       await multisig.deposit(0, { from: other, value: 123 })
-      const withdrawalResult = await multisig.proposeWithdrawal(0, other, 100, { from: salt })
+      const proposalResult = await multisig.proposeWithdrawal(0, other, 100, { from: salt })
 
       // get multisigId for signing
-      const multisigId = withdrawalResult.logs[2].args.multisigId.toNumber()
+      const logs = findEventLogs(proposalResult, 'WithdrawalProposed')
+      const multisigId = logs.args.multisigId.toNumber()
 
       // execute withdrawal
       await assertThrow(multisig.executeWithdrawal(0, { from: other }))

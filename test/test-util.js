@@ -23,10 +23,15 @@ const sleep = seconds => new Promise((resolve, reject) => {
   setTimeout(resolve, seconds * 1000)
 })
 
+const findEventLogs = (txResult, eventName) => {
+  return txResult.logs.find(log => log.event === eventName)
+}
+
 module.exports = {
   assertThrow,
   assertBalanceApprox,
   assertBalanceWithin,
+  findEventLogs,
   sleep,
   within
 }
