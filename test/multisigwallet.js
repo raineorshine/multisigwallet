@@ -223,7 +223,25 @@ contract('MultiSigWallet', accounts => {
       assertBalanceApprox(other, initialBalance.plus(web3.toWei(0.020 + 0.010 + 0.015)))
     })
 
-    it.skip('should allow total withdrawals to exceed balance, but disallow execution', async function() {
+    it('should allow total withdrawals to exceed balance, but disallow execution', async function() {
+      const multisig = await MultiSigWallet.new()
+      await multisig.createWallet(2, signers, { from: salt })
+      await multisig.deposit(0, { from: other, value: web3.toWei(0.1) })
+      const initialBalance = web3.eth.getBalance(other)
+
+      await multisig.proposeWithdrawal(0, other, web3.toWei(0.04), { from: salt })
+      await multisig.proposeWithdrawal(0, other, web3.toWei(0.04), { from: salt })
+      await multisig.proposeWithdrawal(0, other, web3.toWei(0.04), { from: salt })
+
+      // sign
+      await multisig.sign(0, { from: borrower })
+      await multisig.sign(1, { from: borrower })
+      await multisig.sign(2, { from: borrower })
+
+      // execute withdrawals as long as there is enough balance
+      await multisig.executeWithdrawal(0, { from: salt })
+      await multisig.executeWithdrawal(1, { from: salt })
+      await assertThrow(multisig.executeWithdrawal(2, { from: salt }))
     })
   })
 
