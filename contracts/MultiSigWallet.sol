@@ -54,7 +54,7 @@ contract MultiSigWallet is MultiSig {
     for (uint i=0; i<wallet.signers.length; i++) {
       if (wallet.signers[i] == msg.sender) {
         signer = true;
-        continue;
+        break;
       }
     }
     if (!signer) revert();

@@ -11,7 +11,8 @@ const [WITHDRAWAL_WALLETID, WITHDRAWAL_CREATOR, WITHDRAWAL_TO, WITHDRAWAL_MULTIS
 
 contract('MultiSigWallet', accounts => {
 
-  const signers = [salt, borrower, agent] = accounts
+  const [salt, borrower, agent] = accounts
+  const signers = accounts.slice(0,3)
   const other = accounts[3]
 
   it('should be deployable', async function() {
@@ -31,7 +32,7 @@ contract('MultiSigWallet', accounts => {
     assert.deepEqual(result.logs[0].args.signers, signers)
   })
 
-  it.only('should allow anyone to deposit to a wallet', async function() {
+  it('should allow anyone to deposit to a wallet', async function() {
     const multisig = await MultiSigWallet.new()
     await multisig.createWallet(2, signers, { from: salt })
     const result = await multisig.deposit(0, { from: other, value: 123 })
@@ -46,6 +47,28 @@ contract('MultiSigWallet', accounts => {
     // assert balance updated
     const wallet = await multisig.wallets(0)
     assert.equal(wallet[WALLET_BALANCE].toNumber(), 123)
+  })
+
+  it('should allow a signer to propose a withdrawal', async function() {
+    const multisig = await MultiSigWallet.new()
+    await multisig.createWallet(2, signers, { from: salt })
+    await multisig.deposit(0, { from: other, value: 123 })
+    const result = await multisig.proposeWithdrawal(0, other, 100, { from: salt })
+
+    // assert WithdrawalProposed event
+    assert.equal(result.logs[1].event, 'WithdrawalProposed')
+    assert.equal(result.logs[1].args.walletId.toNumber(), 0)
+    assert.equal(result.logs[1].args.sender, salt)
+    assert.equal(result.logs[1].args.to, other)
+    assert.equal(result.logs[1].args.multisigId, 0)
+    assert.equal(result.logs[1].args.amount.toNumber(), 100)
+  })
+
+  it('should not allow a non-signer to propose a withdrawal', async function() {
+    const multisig = await MultiSigWallet.new()
+    await multisig.createWallet(2, signers, { from: salt })
+    await multisig.deposit(0, { from: other, value: 123 })
+    await assertThrow(multisig.proposeWithdrawal(0, other, 123, { from: other }))
   })
 
 })
