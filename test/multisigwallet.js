@@ -15,60 +15,105 @@ contract('MultiSigWallet', accounts => {
   const signers = accounts.slice(0,3)
   const other = accounts[3]
 
-  it('should be deployable', async function() {
-    await MultiSigWallet.new()
+  describe('createWallet', () => {
+    it('should be deployable', async function() {
+      await MultiSigWallet.new()
+    })
+
+    it('should create a wallet', async function() {
+      const multisig = await MultiSigWallet.new()
+      const result = await multisig.createWallet(2, signers, { from: salt })
+
+      // assert event
+      assert.equal(result.logs.length, 1)
+      assert.equal(result.logs[0].event, 'WalletCreated')
+      assert.equal(result.logs[0].args.id.toNumber(), 0)
+      assert.equal(result.logs[0].args.sender, salt)
+      assert.equal(result.logs[0].args.quarum.toNumber(), 2)
+      assert.deepEqual(result.logs[0].args.signers, signers)
+    })
   })
 
-  it('should create a wallet', async function() {
-    const multisig = await MultiSigWallet.new()
-    const result = await multisig.createWallet(2, signers, { from: salt })
+  describe('deposit', () => {
+    it('should allow anyone to deposit to a wallet', async function() {
+      const multisig = await MultiSigWallet.new()
+      await multisig.createWallet(2, signers, { from: salt })
+      const result = await multisig.deposit(0, { from: other, value: 123 })
 
-    // assert WalletCreated event
-    assert.equal(result.logs.length, 1)
-    assert.equal(result.logs[0].event, 'WalletCreated')
-    assert.equal(result.logs[0].args.id.toNumber(), 0)
-    assert.equal(result.logs[0].args.sender, salt)
-    assert.equal(result.logs[0].args.quarum.toNumber(), 2)
-    assert.deepEqual(result.logs[0].args.signers, signers)
+      // assert event
+      assert.equal(result.logs.length, 1)
+      assert.equal(result.logs[0].event, 'WalletDeposited')
+      assert.equal(result.logs[0].args.id.toNumber(), 0)
+      assert.equal(result.logs[0].args.sender, other)
+      assert.equal(result.logs[0].args.amount.toNumber(), 123)
+
+      // assert event
+      const wallet = await multisig.wallets(0)
+      assert.equal(wallet[WALLET_BALANCE].toNumber(), 123)
+    })
   })
 
-  it('should allow anyone to deposit to a wallet', async function() {
-    const multisig = await MultiSigWallet.new()
-    await multisig.createWallet(2, signers, { from: salt })
-    const result = await multisig.deposit(0, { from: other, value: 123 })
+  describe('proposeWithdrawal', () => {
+    it('should allow a signer to propose a withdrawal', async function() {
+      const multisig = await MultiSigWallet.new()
+      await multisig.createWallet(2, signers, { from: salt })
+      await multisig.deposit(0, { from: other, value: 123 })
+      const result = await multisig.proposeWithdrawal(0, other, 100, { from: salt })
 
-    // assert WalletDeposited event
-    assert.equal(result.logs.length, 1)
-    assert.equal(result.logs[0].event, 'WalletDeposited')
-    assert.equal(result.logs[0].args.id.toNumber(), 0)
-    assert.equal(result.logs[0].args.sender, other)
-    assert.equal(result.logs[0].args.amount.toNumber(), 123)
+      // assert event
+      assert.equal(result.logs[1].event, 'WithdrawalProposed')
+      assert.equal(result.logs[1].args.walletId.toNumber(), 0)
+      assert.equal(result.logs[1].args.sender, salt)
+      assert.equal(result.logs[1].args.to, other)
+      assert.equal(result.logs[1].args.multisigId, 0)
+      assert.equal(result.logs[1].args.amount.toNumber(), 100)
+    })
 
-    // assert balance updated
-    const wallet = await multisig.wallets(0)
-    assert.equal(wallet[WALLET_BALANCE].toNumber(), 123)
+    it('should not allow a non-signer to propose a withdrawal', async function() {
+      const multisig = await MultiSigWallet.new()
+      await multisig.createWallet(2, signers, { from: salt })
+      await multisig.deposit(0, { from: other, value: 123 })
+      await assertThrow(multisig.proposeWithdrawal(0, other, 123, { from: other }))
+    })
   })
 
-  it('should allow a signer to propose a withdrawal', async function() {
-    const multisig = await MultiSigWallet.new()
-    await multisig.createWallet(2, signers, { from: salt })
-    await multisig.deposit(0, { from: other, value: 123 })
-    const result = await multisig.proposeWithdrawal(0, other, 100, { from: salt })
+  describe('cancelWithdrawal', () => {
+    it('should allow a signer to cancel a withdrawal they proposed', async function() {
+      const multisig = await MultiSigWallet.new()
+      await multisig.createWallet(2, signers, { from: salt })
+      await multisig.deposit(0, { from: other, value: 123 })
+      await multisig.proposeWithdrawal(0, other, 100, { from: salt })
+      const result = await multisig.cancelWithdrawal(0, { from: salt })
 
-    // assert WithdrawalProposed event
-    assert.equal(result.logs[1].event, 'WithdrawalProposed')
-    assert.equal(result.logs[1].args.walletId.toNumber(), 0)
-    assert.equal(result.logs[1].args.sender, salt)
-    assert.equal(result.logs[1].args.to, other)
-    assert.equal(result.logs[1].args.multisigId, 0)
-    assert.equal(result.logs[1].args.amount.toNumber(), 100)
+      // assert event
+      assert.equal(result.logs.length, 1)
+      assert.equal(result.logs[0].event, 'WithdrawalCanceled')
+      assert.equal(result.logs[0].args.withdrawalId.toNumber(), 0)
+      assert.equal(result.logs[0].args.sender, salt)
+    })
+
+    it('should not allow a signer to cancel a withdrawal they did not propose', async function() {
+      const multisig = await MultiSigWallet.new()
+      await multisig.createWallet(2, signers, { from: salt })
+      await multisig.deposit(0, { from: other, value: 123 })
+      await multisig.proposeWithdrawal(0, other, 100, { from: salt })
+      await assertThrow(multisig.cancelWithdrawal(0, { from: borrower }))
+    })
+
+    it.skip('should not allow a signer to cancel a completed withdrawal', async function() {
+    })
+
   })
 
-  it('should not allow a non-signer to propose a withdrawal', async function() {
-    const multisig = await MultiSigWallet.new()
-    await multisig.createWallet(2, signers, { from: salt })
-    await multisig.deposit(0, { from: other, value: 123 })
-    await assertThrow(multisig.proposeWithdrawal(0, other, 123, { from: other }))
+  describe('executeWithdrawal', () => {
+    it.skip('should allow a completed withdrawal to be executed by anyone', async function() {
+    })
+
+    it.skip('should allow multiple independent withdrawals', async function() {
+    })
+
+    it.skip('should allow total withdrawals to exceed balance, but disallow execution', async function() {
+    })
   })
 
 })

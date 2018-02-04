@@ -140,7 +140,7 @@ contract MultiSigWallet is MultiSig {
   }
 
   /** A withdrawal can be canceled by the creator.*/
-  function cancelWithdrawal(uint withdrawalId) public onlyWithdrawalCreator(withdrawalId) {
+  function cancelWithdrawal(uint withdrawalId) public onlyWithdrawalOpen(withdrawalId) onlyWithdrawalCreator(withdrawalId) {
     withdrawals[withdrawalId].status = WithdrawalStatus.CANCELED;
     WithdrawalCanceled(withdrawalId, msg.sender);
   }
