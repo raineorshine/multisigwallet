@@ -121,6 +121,9 @@ contract MultiSigWallet is MultiSig {
     // create a new multisig to handle auth for the withdrawal
     uint multisigId = super.addMultiSig(wallet.quarum, wallet.signers);
 
+    // sign for creator
+    super.signAs(multisigId, msg.sender);
+
     // autoincrement id
     uint withdrawalId = withdrawals.length;
 
