@@ -99,7 +99,25 @@ contract('MultiSigWallet', accounts => {
       await assertThrow(multisig.cancelWithdrawal(0, { from: borrower }))
     })
 
-    it.skip('should not allow a signer to cancel a completed withdrawal', async function() {
+    it('should not allow a signer to cancel a completed withdrawal', async function() {
+      const multisig = await MultiSigWallet.new()
+      await multisig.createWallet(2, signers, { from: salt })
+      await multisig.deposit(0, { from: other, value: web3.toWei(0.1) })
+      const proposalResult = await multisig.proposeWithdrawal(0, other, web3.toWei(0.01), { from: salt })
+
+      // get multisigId for signing
+      const proposalLogs = findEventLogs(proposalResult, 'WithdrawalProposed')
+      const multisigId = proposalLogs.args.multisigId.toNumber()
+      const initialBalance = web3.eth.getBalance(other)
+
+      // sign
+      multisig.sign(multisigId, { from: borrower })
+
+      // execute withdrawal
+      await multisig.executeWithdrawal(0, { from: other })
+
+      // cannot cancel completed withdrawal
+      await assertThrow(multisig.cancelWithdrawal(0, { from: borrower }))
     })
 
   })
