@@ -79,6 +79,21 @@ contract('MultiSigWallet', accounts => {
       assert.equal(logs.args.amount.toNumber(), 100)
     })
 
+    it('should get withdrawal data', async function() {
+      const multisig = await MultiSigWallet.new()
+      await multisig.createWallet(2, signers, { from: salt })
+      await multisig.deposit(0, { from: other, value: 123 })
+      await multisig.proposeWithdrawal(0, other, 100, { from: salt })
+      const withdrawal = await multisig.withdrawals(0)
+
+      assert.equal(withdrawal[WITHDRAWAL_WALLETID].toNumber(), 0)
+      assert.equal(withdrawal[WITHDRAWAL_CREATOR], salt)
+      assert.equal(withdrawal[WITHDRAWAL_TO], other)
+      assert.equal(withdrawal[WITHDRAWAL_MULTISIGID], 0)
+      assert.equal(withdrawal[WITHDRAWAL_AMOUNT].toNumber(), 100)
+      assert.equal(withdrawal[WITHDRAWAL_STATUS].toNumber(), 0)
+    })
+
     it('should not allow a non-signer to propose a withdrawal', async function() {
       const multisig = await MultiSigWallet.new()
       await multisig.createWallet(2, signers, { from: salt })
