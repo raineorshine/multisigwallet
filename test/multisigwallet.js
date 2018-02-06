@@ -56,9 +56,14 @@ contract('MultiSigWallet', accounts => {
       assert.equal(logs.args.sender, other)
       assert.equal(logs.args.amount.toNumber(), 123)
 
-      // assert event
+      // assert balance
       const wallet = await multisig.wallets(0)
       assert.equal(wallet[WALLET_BALANCE].toNumber(), 123)
+    })
+
+    it('should not allow deposits to a nonexistent wallet', async function() {
+      const multisig = await MultiSigWallet.new()
+      await assertThrow(multisig.deposit(0, { from: other, value: 123 }))
     })
   })
 
